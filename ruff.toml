@@ -1,0 +1,15 @@
+# Контракт линтера. Код и раньше проверялся ruff'ом вручную — noqa-коды в
+# скриптах (BLE001, PLC0415, E402) из этих наборов; теперь тот же прогон
+# делает CI (.github/workflows/ci.yml).
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",    # pycodestyle
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "B",    # bugbear
+    "BLE",  # запрет голых except — каждое исключение помечено по месту
+    "PLC",  # pylint conventions (import вне шапки и т.п.)
+]

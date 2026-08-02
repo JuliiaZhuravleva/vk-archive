@@ -1,0 +1,25 @@
+# Личные данные — никогда не коммитить
+data/
+Archive*.zip
+*.zip
+
+# Рабочие заметки: в них имена собеседников, цитаты из переписки и id
+# страниц — то есть персональные данные третьих лиц. Файлы остаются
+# на диске, но из репозитория исключены сознательно.
+_registry.md
+_tech-debt.md
+HANDOFF*.md
+transcription/
+vocab/
+
+# Системное
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+.vscode/
+.claude/
+*.log
+.env
+.ruff_cache/
+.pytest_cache/

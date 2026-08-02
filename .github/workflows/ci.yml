@@ -1,0 +1,33 @@
+# Линт + компилируемость + тесты чистых функций. Тяжёлого здесь нет:
+# ни БД, ни macOS, ни моделей — тесты закрепляют регрессии, однажды уже
+# портившие данные (collapse_repeats ел числа, --to терял последний день,
+# is_suspect принимал смех за срыв). Секреты ищет отдельный workflow gitleaks.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Зависимости
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install "ruff==0.14.14" pytest
+
+      - name: Линт
+        run: ruff check .
+
+      - name: Компилируемость
+        run: python -m compileall -q scripts
+
+      - name: Тесты
+        run: python -m pytest -q

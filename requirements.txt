@@ -1,0 +1,12 @@
+# Базовое: импорт архива в PostgreSQL, нарезка чанков, эмбеддинги, поиск.
+# Этого хватает для всего, кроме анализа фотографий и пересортировки выдачи —
+# они вынесены в отдельные файлы, потому что тянут за собой много лишнего:
+#   requirements-macos.txt   — системный Vision (только macOS)
+#   requirements-rerank.txt  — torch + transformers (~2,2 ГБ)
+#
+# Ollama ставится не через pip: https://ollama.com, потом `ollama pull bge-m3`.
+# PostgreSQL поднимается из db/docker-compose.yml.
+#
+# Проверено на Python 3.12 и psycopg 3.3.4.
+
+psycopg[binary]~=3.3

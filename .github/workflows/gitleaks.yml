@@ -1,0 +1,30 @@
+# Поиск секретов при каждом пуше и в pull request'ах.
+#
+# Проверяется вся история, а не только новые файлы: секрет, попавший в старый
+# коммит, остаётся доступным навсегда, сколько его потом ни удаляй из рабочей
+# копии. Поэтому fetch-depth: 0 — без него в клоне окажется один коммит,
+# и прогон будет выглядеть успешным, ничего толком не проверив.
+name: gitleaks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Установить gitleaks
+        run: |
+          VERSION=8.30.1
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Прогон по всей истории
+        run: gitleaks git . --config .gitleaks.toml --redact --verbose

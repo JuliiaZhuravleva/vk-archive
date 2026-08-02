@@ -1,0 +1,27 @@
+# PostgreSQL 17 + pgvector для vk-archive.
+# Запуск:  docker compose -f db/docker-compose.yml up -d
+# Данные в data/db/ (gitignored). Только localhost.
+# Пароль локальный и несекретный намеренно: БД слушает 127.0.0.1 и содержит
+# данные, которые и так лежат рядом на диске в открытом виде.
+#
+# `name` обязателен и менять его нельзя. Без него compose берёт имя проекта
+# из имени папки — а она называется `db` и здесь, и в соседнем telegram_exporter.
+# Два разных стека получают одинаковый ключ (проект `db`, сервис `db`), и
+# `up -d` во втором проекте молча УДАЛЯЕТ контейнер первого как «устаревшую
+# версию того же сервиса». Проверено 01.08.2026: подъём tg-archive снёс этот
+# контейнер (данные уцелели — они в bind-mount на хосте, а не в томе).
+name: vk-archive
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: vk-archive-db
+    environment:
+      POSTGRES_DB: vk_archive
+      POSTGRES_USER: vk
+      POSTGRES_PASSWORD: vk_local_only
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ../data/db:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    restart: unless-stopped
