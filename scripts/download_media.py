@@ -5,6 +5,12 @@
 
 Resume: уже скачанные файлы пропускаются. Имя файла: sha1(url)[:16] + расширение
 (маппинг url→файл пишется в data/processed/downloads.log.jsonl).
+
+--manifest берёт другой файл вместо основного. Нужен, чтобы докачать вложения
+одной конкретной выгрузки: голосовые скачаны все, а фотографии — нет, их
+забирает по требованию analyze_photos.py и с --discard удаляет после разбора.
+Поэтому «--kind photo» по основному манифесту означает не «докачать новое», а
+«скачать все 79 тысяч ещё не скачанных» (проверено 05.08.2026).
 """
 import argparse
 import hashlib
@@ -61,10 +67,12 @@ def main() -> None:
     ap.add_argument("--kind", required=True, choices=["voice", "photo", "other"])
     ap.add_argument("--limit", type=int, default=0, help="0 = без лимита")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--manifest", type=Path, default=MANIFEST,
+                    help=f"манифест (по умолчанию {MANIFEST})")
     args = ap.parse_args()
 
     items = []
-    with MANIFEST.open(encoding="utf-8") as f:
+    with args.manifest.open(encoding="utf-8") as f:
         for line in f:
             rec = json.loads(line)
             if rec["kind"] != args.kind:

@@ -23,10 +23,9 @@ from zoneinfo import ZoneInfo
 import psycopg
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import DSN                               # noqa: E402
+from common import DSN, RAW                          # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "data" / "raw" / "messages"
 PROC = ROOT / "data" / "processed"
 TRANS = PROC / "transcription"
 

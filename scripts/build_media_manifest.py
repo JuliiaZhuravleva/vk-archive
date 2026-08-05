@@ -4,15 +4,23 @@
 Каждая строка: {kind, url, peer_id, msg_id, att_type, file}
 kind: voice (psv4 .ogg) | photo (userapi jpg) | other
 Дедупликация по URL (пересланные сообщения дублируют вложения).
+
+Файл перезаписывается целиком. Для второй выгрузки собирайте её в отдельный
+файл (--out) и сливайте через merge_media_manifest.py: имя скачанного файла —
+это sha1 от URL, а VK отдаёт то же фото с другого CDN-шарда, так что слепая
+пересборка обнулит соответствие манифеста уже скачанному кэшу.
 """
+import argparse
 import json
 import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import RAW                                # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "data" / "raw" / "messages"
-OUT = ROOT / "data" / "processed" / "media_manifest.jsonl"
+DEFAULT_OUT = ROOT / "data" / "processed" / "media_manifest.jsonl"
 
 MSG_SPLIT = re.compile(r'<div class="message" data-id="(\d+)"')
 ATT = re.compile(
@@ -32,6 +40,12 @@ def classify(att_type: str, url: str) -> str:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", type=Path, default=DEFAULT_OUT,
+                    help=f"куда писать манифест (по умолчанию {DEFAULT_OUT})")
+    args = ap.parse_args()
+    OUT = args.out
+
     seen: set[str] = set()
     counts: dict[str, int] = {}
     OUT.parent.mkdir(parents=True, exist_ok=True)

@@ -27,11 +27,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import OWN_NAME                          # noqa: E402
+from common import OWN_NAME, RAW                     # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "data" / "raw" / "messages"
 VOICE_DIR = ROOT / "data" / "media" / "voice"
 MANIFEST = ROOT / "data" / "processed" / "media_manifest.jsonl"
 OUT = ROOT / "data" / "processed" / "transcription"

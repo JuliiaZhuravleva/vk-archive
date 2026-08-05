@@ -10,9 +10,12 @@
 Ни БД, ни macOS, ни моделей не нужно: pytest -q.
 """
 import datetime as dt
+import importlib
 from types import SimpleNamespace
 
 import build_chunks
+import common
+import merge_media_manifest
 import db_import
 import transcribe_voice
 from search import build_filters
@@ -165,3 +168,68 @@ def test_boilerplate_ignores_real_speech():
 
 def test_clean_text_strips_tags_and_nul():
     assert db_import.clean_text("<b>привет &amp; мир</b>\x00") == "привет & мир"
+
+
+# ---------- url_key: одно вложение из двух выгрузок — один ключ ----------
+#
+# VK отдаёт тот же файл с другого шарда CDN и сменил домен vk.com → vk.ru.
+# Имя скачанного файла — sha1(url), поэтому «новый» URL означает повторную
+# выкачку и файл-близнец. На прогоне 05.08.2026 нормализация отсекла 638
+# таких строк из 1344. Если регулярка перестанет матчить, слияние манифеста
+# молча пропустит их как новые — ошибка без единого сообщения.
+
+def _rec(url):
+    return {"url": url}
+
+
+def test_url_key_collapses_cdn_shard():
+    a = _rec("https://sun9-78.userapi.com/impg/AbCd/x.jpg?size=850x533&sign=ff")
+    b = _rec("https://sun9-9.userapi.com/impg/AbCd/x.jpg?size=850x533&sign=ff")
+    assert merge_media_manifest.url_key(a) == merge_media_manifest.url_key(b)
+
+
+def test_url_key_collapses_vk_com_and_vk_ru():
+    a = _rec("https://vk.com/video-111111_222222")
+    b = _rec("https://vk.ru/video-111111_222222")
+    assert merge_media_manifest.url_key(a) == merge_media_manifest.url_key(b)
+
+
+def test_url_key_keeps_different_files_apart():
+    """Негативный контроль: перематчить опаснее, чем недоматчить.
+
+    Слишком жадная нормализация схлопнет разные вложения в один ключ, и
+    действительно новые фотографии не попадут в манифест вообще.
+    """
+    a = _rec("https://sun9-78.userapi.com/impg/AbCd/x.jpg")
+    b = _rec("https://sun9-78.userapi.com/impg/ZzZz/y.jpg")
+    assert merge_media_manifest.url_key(a) != merge_media_manifest.url_key(b)
+
+
+def test_url_key_does_not_touch_voice_hosts():
+    """Голосовые лежат на psv4, а не на шардах sun*, и их URL устойчив.
+
+    Подпись у /amsg/ вшита в путь: два разных голосовых обязаны остаться
+    разными ключами, иначе одно перекроет другое.
+    """
+    a = _rec("https://psv4.userapi.com/s/v1/amsg/AAAA.ogg")
+    b = _rec("https://psv4.userapi.com/s/v1/amsg/BBBB.ogg")
+    assert merge_media_manifest.url_key(a) != merge_media_manifest.url_key(b)
+    assert merge_media_manifest.url_key(a) == merge_media_manifest.url_key(_rec(a["url"]))
+
+
+# ---------- RAW: вторая выгрузка подключается переменной, а не подменой ----------
+
+def test_archive_raw_env_switches_tree(monkeypatch):
+    monkeypatch.setenv("VK_ARCHIVE_RAW", "data/raw-20260731")
+    reloaded = importlib.reload(common)
+    try:
+        assert reloaded.RAW.parts[-2:] == ("data/raw-20260731".split("/")[-1],
+                                           "messages")
+        assert reloaded.RAW.is_absolute()   # относительный путь — от корня репо
+    finally:
+        monkeypatch.delenv("VK_ARCHIVE_RAW", raising=False)
+        importlib.reload(common)
+
+
+def test_archive_raw_defaults_to_data_raw():
+    assert common.RAW.parts[-3:] == ("data", "raw", "messages")

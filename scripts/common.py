@@ -24,8 +24,22 @@ DSN подключения к Postgres из db/docker-compose.yml. Пароль 
 Другой порт/хост — одной переменной:
 
   export VK_ARCHIVE_DSN="host=127.0.0.1 port=5433 dbname=vk_archive user=vk password=..."
+
+Каталог распакованного экспорта. По умолчанию data/raw — тот, с которого база
+собиралась изначально. Заказав у VK новую выгрузку, распакуйте её ОТДЕЛЬНО и
+укажите переменной, а не поверх старой:
+
+  export VK_ARCHIVE_RAW="data/raw-20260731"
+
+Так и надо: выгрузки не вложены одна в другую. Из новой пропадает то, что VK
+перестал отдавать (удалённые чаты, комментарии к умершим постам, целые разделы),
+и старый каталог остаётся единственным носителем этого. Импорт только дополняет
+базу, поэтому оба дерева нужны — затирать data/raw новой выгрузкой нельзя.
 """
 import os
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 
 OWN_NAME = os.environ.get("VK_OWN_NAME", "Я")
 
@@ -40,3 +54,10 @@ DSN = os.environ.get(
 
 OLLAMA_EMBED = os.environ.get("VK_OLLAMA_EMBED",
                               "http://127.0.0.1:11434/api/embed")
+
+# Относительный путь считается от корня репозитория, а не от текущего каталога:
+# скрипты запускают и из корня, и из scripts/.
+ARCHIVE_ROOT = Path(os.environ.get("VK_ARCHIVE_RAW") or (ROOT / "data" / "raw"))
+if not ARCHIVE_ROOT.is_absolute():
+    ARCHIVE_ROOT = ROOT / ARCHIVE_ROOT
+RAW = ARCHIVE_ROOT / "messages"

@@ -17,11 +17,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from transcribe_voice import parse_page, peer_names  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import OWN_NAME                          # noqa: E402
+from common import OWN_NAME, RAW                     # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "data" / "raw" / "messages"
 EXPORTS = ROOT / "data" / "processed" / "exports"
 
 MONTHS = {"янв": 1, "фев": 2, "мар": 3, "апр": 4, "мая": 5, "июн": 6,

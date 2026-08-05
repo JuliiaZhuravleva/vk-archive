@@ -13,8 +13,10 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import RAW                                # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "data" / "raw" / "messages"
 OUT = ROOT / "data" / "processed" / "participation.json"
 
 MSG = re.compile(r'<div class="message" data-id="\d+"(.*?)'
