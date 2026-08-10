@@ -163,6 +163,16 @@ nohup caffeinate -i .venv/bin/python -u scripts/analyze_photos.py \
 .venv/bin/python scripts/rerank.py                             # самопроверка, качает 2,2 ГБ
 .venv/bin/python scripts/search.py "как мы познакомились" --rerank
 .venv/bin/python scripts/eval_search.py --rerank               # замер с реранком
+
+# найденное — в хронологию, чтобы раскопку не повторять заново
+.venv/bin/python scripts/life_events.py import        # JSON → база
+.venv/bin/python scripts/life_events.py list --tag игры --from 2018
+.venv/bin/python scripts/life_events.py show <slug>   # событие с цитатами
+.venv/bin/python scripts/life_events.py export        # → markdown-таймлайн
+
+# найденные картинки — в отдельную папку с подписями
+.venv/bin/python scripts/collect_photos.py --out data/processed/collections/тема \
+        --id 12345 67890
 ```
 
 Пауза прогона — `touch data/processed/transcription/PAUSE`, снять — удалить файл.
@@ -226,6 +236,7 @@ vk-archive/
 │   ├── archive-format.md    # формат экспорта VK (проверен на живом экспорте)
 │   ├── data-inventory.md    # что вообще лежит в экспорте и в каком объёме
 │   ├── db-schema.md         # схема БД и гибридный поиск
+│   ├── life-events.md       # хронология: как копить находки, чтобы не искать дважды
 │   └── transcription-settings.md  # версии настроек whisper, что перепрогонять
 ├── scripts/
 │   ├── common.py                  # общее: имя, прозвища, DSN — всё через env
@@ -245,6 +256,8 @@ vk-archive/
 │   ├── analyze_photos.py          # фото → OCR + сцена + лица (macOS Vision) → БД
 │   ├── build_photo_chunks.py      # текст с фотографий → чанки для поиска
 │   ├── eval_search.py             # замер качества поиска на контрольных запросах
+│   ├── life_events.py             # хронология жизни: события + цитаты-основания
+│   ├── collect_photos.py          # найденные вложения → папка с manifest.md
 │   ├── find_bad_transcripts.py    # контроль качества расшифровок
 │   ├── label_settings.py          # версии настроек транскрипции
 │   ├── export_chat.py             # экспорт диалога в md/txt с разбивкой
@@ -253,7 +266,8 @@ vk-archive/
     ├── raw/                 # распакованный архив VK
     ├── media/voice/         # скачанные голосовые (.ogg)
     ├── db/                  # том PostgreSQL
-    └── processed/           # manifest, транскрипции, экспорты
+    └── processed/           # manifest, транскрипции, экспорты,
+                             # life_events/, collections/
 ```
 
 ## Ближайший шаг

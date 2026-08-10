@@ -215,3 +215,68 @@ ALTER TABLE chunks ADD COLUMN source text NOT NULL DEFAULT 'messages'
 -- диалога плодила бы дубли или требовала сносить уже посчитанные векторы.
 CREATE UNIQUE INDEX chunks_span_part_idx
   ON chunks (peer_id, msg_from, msg_to, part, source);
+
+-- ============ хронология жизни ============
+-- То, ради чего всё остальное и собиралось: события биографии, добытые
+-- «раскопками» по переписке. Таблица отличается от analyses тем, что там
+-- лежит СГЕНЕРИРОВАННЫЙ текст (дайджест диалога, таймлайн периода), а здесь —
+-- отдельный установленный факт с цитатами-основаниями. Дайджест переписывается
+-- при смене модели целиком; событие однажды найдено и больше не теряется.
+--
+-- Ключ — slug, а не (title, дата): дата у события обычно уточняется по мере
+-- находок («осень 2018» → «12.10.2018»), и привязка к ней означала бы дубль
+-- при каждом уточнении.
+CREATE TABLE life_events (
+  id         bigserial PRIMARY KEY,
+  slug       text UNIQUE NOT NULL,         -- стабильный ключ события
+  title      text NOT NULL,
+  kind       text NOT NULL,                -- media | relationship | work | move |
+                                           -- health | education | project | other
+  -- Границы события. Обе даты — левый край своего периода: «осень 2018»
+  -- пишется как 2018-09-01 с precision='month'. Смотреть на дату без
+  -- precision нельзя: 2018-01-01/'year' — это «когда-то в 2018», а не 1 января.
+  started_on date,
+  ended_on   date,
+  -- Точность у каждой границы своя, и это не педантизм: типичная находка —
+  -- «началось где-то в октябре 2018, а вот закончилось 16.10.2019, вот цитата».
+  -- Одна общая точность заставила бы либо огрублять точный конец, либо
+  -- печатать 01.10.2018 как будто это наблюдение, а не левый край месяца.
+  -- end_precision = NULL означает «как у начала».
+  precision     text NOT NULL DEFAULT 'day'
+                CHECK (precision IN ('day', 'month', 'year', 'unknown')),
+  end_precision text CHECK (end_precision IN ('day', 'month', 'year', 'unknown')),
+  -- Ровно та шкала, что и в остальной работе: verified — видно в архиве
+  -- своими глазами, inferred — вывод из увиденного, assumed — догадка по
+  -- косвенным признакам. Событие без источников не может быть verified.
+  confidence text NOT NULL DEFAULT 'inferred'
+             CHECK (confidence IN ('verified', 'inferred', 'assumed')),
+  summary    text NOT NULL,
+  details    text,
+  tags       text[] NOT NULL DEFAULT '{}',
+  -- Что осталось непроверенным и где искать дальше. Без этого поля повторная
+  -- раскопка начинается с нуля: «искали и не нашли» неотличимо от «не искали».
+  gaps       text,
+  found_on   date,                         -- когда откопали
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX life_events_started_idx ON life_events (started_on);
+CREATE INDEX life_events_tags_idx ON life_events USING gin (tags);
+
+-- Основания. Цитата хранится копией, а не только ссылкой на сообщение:
+-- переимпорт архива меняет messages.id, а вторая выгрузка VK вообще может
+-- не отдать сообщение, по которому факт был установлен (см. README про
+-- пропадающие разделы). Ссылка на (peer_id, vk_msg_id) при этом остаётся —
+-- она переживает переимпорт, в отличие от messages.id.
+CREATE TABLE life_event_sources (
+  id        bigserial PRIMARY KEY,
+  event_id  bigint NOT NULL REFERENCES life_events ON DELETE CASCADE,
+  peer_id   bigint REFERENCES dialogs,
+  vk_msg_id bigint,
+  sent_at   timestamptz,
+  is_own    boolean,
+  role      text NOT NULL DEFAULT 'evidence'
+            CHECK (role IN ('evidence', 'context', 'counter')),
+  quote     text,
+  note      text
+);
+CREATE INDEX life_event_sources_event_idx ON life_event_sources (event_id);

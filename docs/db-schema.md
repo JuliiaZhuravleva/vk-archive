@@ -6,14 +6,14 @@
 запуск: `docker compose -f db/docker-compose.yml up -d` (порт **5433**, только
 localhost, данные в `data/db/`).
 
-## Схема (10 таблиц)
+## Схема (12 таблиц)
 
 ```
 dialogs 1─* messages 1─* attachments 1─1 voice_transcripts *─1 prompt_batches
    │            │
    │            └─ tsv (FTS russian)          vocab_terms (peer, term, source)
    ├─* dialog_periods (год → промпт)          analyses (peer?, kind, span, md)
-   └─* chunks (окно сообщений + vector(1024))
+   └─* chunks (окно сообщений + vector(1024))  life_events 1─* life_event_sources
 ```
 
 | Таблица | Что хранит | Откуда наполняется |
@@ -27,6 +27,8 @@ dialogs 1─* messages 1─* attachments 1─1 voice_transcripts *─1 prompt_ba
 | `dialog_periods` | периоды диалога: описание тем + промпт | `vocab/<peer>-periods.md` |
 | `analyses` | LLM-дайджесты, таймлайны, мета-анализ | Фаза 4 (генерация) |
 | `chunks` | окна сообщений с эмбеддингами | чанкер (Фаза 3) |
+| `life_events` | события биографии, добытые раскопками | `life_events.py import` |
+| `life_event_sources` | цитаты-основания события | там же |
 
 ## Ключевые решения
 
