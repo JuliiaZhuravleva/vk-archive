@@ -147,6 +147,14 @@ nohup caffeinate -i .venv/bin/python -u scripts/analyze_photos.py \
 # --discard удаляет картинку сразу после анализа: данные в БД остаются,
 # место не растёт. Пауза — touch data/processed/photos/PAUSE
 
+# фото на Google Диске: вложение → файл на Диске. Ссылки VK умирают, а имя
+# файла выводится из ссылки (sha1), поэтому связь держится и без них
+rclone lsjson --files-only --hash gdrive:vk-archive-photos \
+      > data/processed/drive-listing.json                        # id и хеши файлов
+.venv/bin/python scripts/photo_drive.py index data/processed/drive-listing.json
+.venv/bin/python scripts/photo_drive.py coverage                 # сколько фото на Диске
+.venv/bin/python scripts/photo_drive.py link "<ссылка вложения>" # → ссылка на файл
+
 # распознанный на фото текст — в поиск: чанк на каждую осмысленную картинку
 .venv/bin/python scripts/build_photo_chunks.py --all --sample 5   # посмотреть
 .venv/bin/python scripts/build_photo_chunks.py --all --write      # чанк на фото
@@ -211,7 +219,8 @@ export VK_ARCHIVE_RAW=data/raw-НОВАЯ
 * **Манифест нельзя пересобирать поверх.** Имя скачанного файла — это `sha1(url)`,
   а VK отдаёт то же фото с другого шарда CDN (`sun9-78` → `sun9-9`) и сменил домен
   `vk.com` → `vk.ru`. Пересборка меняет хеш у сотни тысяч записей: связь с уже
-  скачанным кэшем рвётся, и всё качается заново. У голосовых URL, наоборот,
+  скачанным кэшем рвётся, и всё качается заново, а `photo_drive.py` перестаёт
+  находить копии фото на Google Диске. У голосовых URL, наоборот,
   устойчив — 9 191 из 9 191 совпали побайтово. `merge_media_manifest.py`
   сохраняет старые строки и добавляет только незнакомые вложения.
 * **`download_media.py --kind photo` по основному манифесту — это не «докачать
@@ -258,6 +267,7 @@ vk-archive/
 │   ├── eval_search.py             # замер качества поиска на контрольных запросах
 │   ├── life_events.py             # хронология жизни: события + цитаты-основания
 │   ├── collect_photos.py          # найденные вложения → папка с manifest.md
+│   ├── photo_drive.py             # фото на Google Диске: ссылка VK → файл на Диске
 │   ├── find_bad_transcripts.py    # контроль качества расшифровок
 │   ├── label_settings.py          # версии настроек транскрипции
 │   ├── export_chat.py             # экспорт диалога в md/txt с разбивкой
