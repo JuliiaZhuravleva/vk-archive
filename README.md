@@ -178,6 +178,10 @@ rclone lsjson --files-only --hash gdrive:vk-archive-photos \
 .venv/bin/python scripts/life_events.py show <slug>   # событие с цитатами
 .venv/bin/python scripts/life_events.py export        # → markdown-таймлайн
 
+# черновые утверждения модели — уточняются, когда исследование доходит до окна
+.venv/bin/python scripts/claims.py due --peer 123 --from 2018-01 --to 2018-02
+.venv/bin/python scripts/claims.py revise <key> --verdict refuted --level 3 --by "…"
+
 # найденные картинки — в отдельную папку с подписями
 .venv/bin/python scripts/collect_photos.py --out data/processed/collections/тема \
         --id 12345 67890
@@ -239,13 +243,14 @@ vk-archive/
 ├── PLAN.md                  # план работ по фазам
 ├── requirements.txt         # база; -macos и -rerank ставятся сверх неё
 ├── db/
-│   ├── schema.sql           # PostgreSQL + pgvector, 10 таблиц
+│   ├── schema.sql           # PostgreSQL + pgvector, 15 таблиц
 │   └── docker-compose.yml   # база на 127.0.0.1:5433
 ├── docs/
 │   ├── archive-format.md    # формат экспорта VK (проверен на живом экспорте)
 │   ├── data-inventory.md    # что вообще лежит в экспорте и в каком объёме
 │   ├── db-schema.md         # схема БД и гибридный поиск
 │   ├── life-events.md       # хронология: как копить находки, чтобы не искать дважды
+│   ├── claims.md            # утверждения модели: уровни проверки и журнал уточнений
 │   └── transcription-settings.md  # версии настроек whisper, что перепрогонять
 ├── scripts/
 │   ├── common.py                  # общее: имя, прозвища, DSN — всё через env
@@ -266,6 +271,7 @@ vk-archive/
 │   ├── build_photo_chunks.py      # текст с фотографий → чанки для поиска
 │   ├── eval_search.py             # замер качества поиска на контрольных запросах
 │   ├── life_events.py             # хронология жизни: события + цитаты-основания
+│   ├── claims.py                  # черновые утверждения: уровни + журнал уточнений
 │   ├── collect_photos.py          # найденные вложения → папка с manifest.md
 │   ├── photo_drive.py             # фото на Google Диске: ссылка VK → файл на Диске
 │   ├── find_bad_transcripts.py    # контроль качества расшифровок
@@ -277,7 +283,7 @@ vk-archive/
     ├── media/voice/         # скачанные голосовые (.ogg)
     ├── db/                  # том PostgreSQL
     └── processed/           # manifest, транскрипции, экспорты,
-                             # life_events/, collections/
+                             # life_events/, claims/, collections/
 ```
 
 ## Ближайший шаг

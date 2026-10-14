@@ -280,3 +280,72 @@ CREATE TABLE life_event_sources (
   note      text
 );
 CREATE INDEX life_event_sources_event_idx ON life_event_sources (event_id);
+
+-- ============ утверждения и их уточнения ============
+-- Промежуточный слой между дайджестом и событием хронологии. Модель,
+-- прочитавшая кусок переписки, выписывает утверждения («в эти дни обсуждала
+-- переезд»); каждое — со ссылками на сообщения-основания. Дешёвая модель
+-- ошибается в деталях (путает, кто что сказал, выдаёт подозрение за факт), но
+-- каркас событий находит, поэтому утверждения хранятся с низким уровнем и
+-- уточняются попутно — когда этот же кусок переписки поднимает исследование.
+--
+-- Источник истины — JSONL на диске (data/processed/claims/), база его зеркалит
+-- и пересобирается целиком (scripts/claims.py sync). Текущее состояние
+-- утверждения — свёртка журнала claim_revisions; руками его не правят.
+--
+-- level — кто последним проверил, а не что модель сама о себе думает
+-- (самооценка «прямо/косвенно» оказалась бесполезной: почти всё «прямо»,
+-- ошибки тоже):
+--   1 — черновик модели, никто не проверял;
+--   2 — более сильная модель перечитала сообщения-основания;
+--   3 — подтверждено или опровергнуто исследованием с цитатами;
+--   4 — слово хозяина архива.
+-- status — исход: open (не проверено или проверка ничего не дала), confirmed,
+-- corrected (текст исправлен), refuted. Опровергнутое не удаляется: ошибка
+-- модели тоже знание — видно, в чём именно она врёт.
+CREATE TABLE claims (
+  key           text PRIMARY KEY,           -- run + хэш содержания, стабилен
+  run           text NOT NULL,              -- прогон, которым выписано
+  origin        text NOT NULL,              -- модель или метод
+  theme         text,
+  peer_id       bigint REFERENCES dialogs,
+  period_from   date,                       -- по датам сообщений-оснований
+  period_to     date,
+  original_text text NOT NULL,
+  text          text NOT NULL,              -- текущая редакция
+  level         smallint NOT NULL CHECK (level BETWEEN 1 AND 4),
+  status        text NOT NULL DEFAULT 'open'
+                CHECK (status IN ('open', 'confirmed', 'corrected', 'refuted')),
+  event_slug    text,                       -- если выросло в life_events
+  n_revisions   int NOT NULL DEFAULT 0
+);
+CREATE INDEX claims_period_idx ON claims (peer_id, period_from, period_to);
+
+CREATE TABLE claim_sources (
+  claim_key text NOT NULL REFERENCES claims ON DELETE CASCADE,
+  peer_id   bigint NOT NULL,
+  vk_msg_id bigint NOT NULL,
+  PRIMARY KEY (claim_key, peer_id, vk_msg_id)
+);
+
+-- Журнал уточнений: кто, когда, каким способом, с каким вердиктом и что
+-- поменялось. verdict='unclear' — проверяли, но решить не смогли: уровень и
+-- статус не меняются, но «смотрели и не поняли» отличимо от «не смотрели».
+CREATE TABLE claim_revisions (
+  claim_key  text NOT NULL REFERENCES claims ON DELETE CASCADE,
+  seq        int NOT NULL,
+  revised_at timestamptz NOT NULL,
+  revised_by text NOT NULL,
+  method     text,
+  verdict    text NOT NULL
+             CHECK (verdict IN ('confirmed', 'corrected', 'refuted', 'unclear')),
+  old_level  smallint NOT NULL,
+  new_level  smallint NOT NULL,
+  old_status text NOT NULL,
+  new_status text NOT NULL,
+  old_text   text,
+  new_text   text,
+  note       text,
+  ref        text,                          -- исследование, событие, документ
+  PRIMARY KEY (claim_key, seq)
+);
