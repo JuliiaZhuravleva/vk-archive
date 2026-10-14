@@ -181,6 +181,7 @@ rclone lsjson --files-only --hash gdrive:vk-archive-photos \
 # черновые утверждения модели — уточняются, когда исследование доходит до окна
 .venv/bin/python scripts/claims.py due --peer 123 --from 2018-01 --to 2018-02
 .venv/bin/python scripts/claims.py revise <key> --verdict refuted --level 3 --by "…"
+.venv/bin/python scripts/verify_claims.py --run <прогон> --max-cost 5   # уровень 2 разом, Claude
 
 # найденные картинки — в отдельную папку с подписями
 .venv/bin/python scripts/collect_photos.py --out data/processed/collections/тема \
@@ -272,6 +273,7 @@ vk-archive/
 │   ├── eval_search.py             # замер качества поиска на контрольных запросах
 │   ├── life_events.py             # хронология жизни: события + цитаты-основания
 │   ├── claims.py                  # черновые утверждения: уровни + журнал уточнений
+│   ├── verify_claims.py           # проверка уровня 2 сильной моделью (необязательно)
 │   ├── collect_photos.py          # найденные вложения → папка с manifest.md
 │   ├── photo_drive.py             # фото на Google Диске: ссылка VK → файл на Диске
 │   ├── find_bad_transcripts.py    # контроль качества расшифровок

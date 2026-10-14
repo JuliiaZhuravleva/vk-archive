@@ -120,3 +120,24 @@ def test_load_all_rejects_revision_of_unknown_claim(tmp_path):
     write_jsonl(tmp_path / "revisions.jsonl", [dict(rev("refuted", 3), claim="run-x:nope")])
     with pytest.raises(ValueError, match="несуществующему"):
         claims.load_all(tmp_path)
+
+
+def test_append_revisions_writes_whole_batch(tmp_path):
+    write_jsonl(tmp_path / "runs" / "r.jsonl", [dict(CLAIM, run="r", origin="m")])
+    loaded = claims.load_all(tmp_path)
+    claims.append_revisions([dict(rev("confirmed", 2), claim=CLAIM["key"]),
+                             dict(rev("refuted", 3), claim=CLAIM["key"])], loaded, tmp_path)
+    assert loaded[CLAIM["key"]]["state"]["status"] == "refuted"
+    assert claims.load_all(tmp_path)[CLAIM["key"]]["state"]["level"] == 3
+
+
+def test_append_revisions_contradiction_leaves_file_and_state_untouched(tmp_path):
+    write_jsonl(tmp_path / "runs" / "r.jsonl", [dict(CLAIM, run="r", origin="m")])
+    write_jsonl(tmp_path / "revisions.jsonl", [dict(rev("confirmed", 3), claim=CLAIM["key"])])
+    before = (tmp_path / "revisions.jsonl").read_text()
+    loaded = claims.load_all(tmp_path)
+    with pytest.raises(ValueError, match="не может перебить"):
+        claims.append_revisions([dict(rev("unclear", 2), claim=CLAIM["key"]),
+                                 dict(rev("refuted", 2), claim=CLAIM["key"])], loaded, tmp_path)
+    assert (tmp_path / "revisions.jsonl").read_text() == before
+    assert len(loaded[CLAIM["key"]]["revisions"]) == 1

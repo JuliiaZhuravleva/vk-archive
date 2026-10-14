@@ -239,25 +239,36 @@ def cmd_revise(args):
         new = [dict(claim=args.key, verdict=args.verdict, level=args.level,
                     by=args.by, method=args.method, text=args.text,
                     note=args.note, ref=args.ref, event=args.event)]
-    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     for rev in new:
         rev["claim"] = resolve(claims, rev["claim"])
-        rev.setdefault("at", now)
-        rev = {k: v for k, v in rev.items() if v is not None}
-        claims[rev["claim"]]["revisions"].append(rev)
-    # Сначала свернуть всё с новыми правками, и только если сошлось — писать.
-    for c in claims.values():
-        try:
-            fold(c, c["revisions"])
-        except ValueError as e:
-            sys.exit(f"не записано ничего: {e}")
-    with (CLAIMS_DIR / "revisions.jsonl").open("a", encoding="utf-8") as f:
-        for rev in new:
-            f.write(json.dumps({k: v for k, v in rev.items() if v is not None},
-                               ensure_ascii=False) + "\n")
+    try:
+        append_revisions(new, claims)
+    except ValueError as e:
+        sys.exit(f"не записано ничего: {e}")
     print(f"записано правок: {len(new)}")
     args.quiet = True
     cmd_sync(args)
+
+
+def append_revisions(new, claims=None, base=CLAIMS_DIR):
+    """Дописать правки в журнал. Сначала сворачивается всё вместе с новыми,
+    и только если сошлось — запись; иначе ValueError и файл не тронут."""
+    claims = load_all(base) if claims is None else claims
+    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    new = [{k: v for k, v in dict(rev, at=rev.get("at") or now).items() if v is not None}
+           for rev in new]
+    touched = {}
+    for rev in new:
+        if rev.get("claim") not in claims:
+            raise ValueError(f"правка к несуществующему утверждению {rev.get('claim')!r}")
+        c = touched.setdefault(rev["claim"], dict(claims[rev["claim"]]))
+        c["revisions"] = c["revisions"] + [rev]
+    for c in touched.values():
+        c["state"], c["journal"] = fold(c, c["revisions"])
+    with (base / "revisions.jsonl").open("a", encoding="utf-8") as f:
+        for rev in new:
+            f.write(json.dumps(rev, ensure_ascii=False) + "\n")
+    claims.update(touched)
 
 
 def cmd_due(args):
