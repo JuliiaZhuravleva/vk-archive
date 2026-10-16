@@ -70,7 +70,8 @@ PROMPT = """Строки «{own}:» — автор архива. В утверж
 - refuted — главное утверждение противоречит сообщениям или в них нет ничего похожего;
 - unclear — фрагментов недостаточно, чтобы решить.
 Частые ошибки черновика: перепутано, кто что сказал или сделал; подозрение или слух подан как \
-факт; план или намерение подано как свершившееся; добавлен мотив или чувство, которых в тексте нет; \
+факт; план или намерение подано как свершившееся; добавлен мотив или чувство, \
+которых в тексте нет; \
 неверная дата. Найдёшь такую — это corrected (или refuted, если без неё утверждения не остаётся).
 В note — одно предложение: почему, со ссылкой на номера сообщений (#…).
 
@@ -190,8 +191,8 @@ def ask(prompt, model, budget):
             input=prompt, capture_output=True, text=True, cwd=empty, timeout=600)
     try:
         env = json.loads(r.stdout)
-    except json.JSONDecodeError:
-        raise RuntimeError(f"claude rc={r.returncode}: {(r.stderr or r.stdout)[-400:]}")
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"claude rc={r.returncode}: {(r.stderr or r.stdout)[-400:]}") from e
     if env.get("is_error") or not env.get("structured_output"):
         raise RuntimeError(f"claude: {env.get('subtype')} "
                            f"status={env.get('api_error_status')} {str(env.get('result'))[:300]}")

@@ -163,6 +163,15 @@ rclone lsjson --files-only --hash gdrive:vk-archive-photos \
 # замер: --source messages = корпус без фото, --photo-cases = ответ только на фото
 .venv/bin/python scripts/eval_search.py --photo-cases
 
+# поисковый указатель: к каждому разговору локальная модель пишет запросы,
+# по которым его стоит показать (выводов не делает) — чанк породы queries
+.venv/bin/python scripts/build_query_chunks.py queries_2018-*.jsonl --sample 5   # посмотреть
+.venv/bin/python scripts/build_query_chunks.py queries_2018-*.jsonl --write
+.venv/bin/python scripts/embed_chunks.py --all
+# замер на своём наборе {queries, targets}: с указателем и без него
+.venv/bin/python scripts/eval_search.py --set cases.json --only vector --only hybrid
+.venv/bin/python scripts/eval_search.py --set cases.json --source messages --source photo
+
 .venv/bin/python scripts/search.py "билеты" --mode fts         # сравнить режимы
 .venv/bin/python scripts/eval_search.py --verbose              # замер качества
 

@@ -148,7 +148,8 @@ def process(conn, path: Path, write: bool, sample: int) -> dict:
         # это не «всё устарело», а не та база или не тот месяц. Уборка снесла
         # бы весь месяц указателя вместе с векторами.
         conn.rollback()
-        raise RuntimeError(f"{path.name}: {len(talks)} разговоров, ни одного в базе — уборка отменена")
+        raise RuntimeError(f"{path.name}: {len(talks)} разговоров, ни одного в базе — "
+                           "уборка отменена")
     conn.cursor().executemany(SQL_INSERT, batch)
     st["stale"] = conn.execute(
         """DELETE FROM chunks c
