@@ -120,12 +120,18 @@ def ensure_schema(conn) -> None:
     # («photos», «Photo») заводит третью породу строк: её не отбирает ни один
     # фильтр по source и не убирает ни одна из двух уборок, зато в поиск по
     # умолчанию она попадает.
-    known = {r[0] for r in conn.execute(
-        "SELECT conname FROM pg_constraint "
-        " WHERE conrelid = 'chunks'::regclass").fetchall()}
-    if "chunks_source_check" not in known:
+    #
+    # Третья порода — `queries`, поисковый указатель (build_query_chunks.py).
+    # Ограничение старой редакции, без неё, пересоздаём: иначе вставка
+    # указателя падает на томе, поднятом до его появления.
+    known = dict(conn.execute(
+        "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+        " WHERE conrelid = 'chunks'::regclass").fetchall())
+    if "'queries'" not in known.get("chunks_source_check", ""):
+        if "chunks_source_check" in known:
+            conn.execute("ALTER TABLE chunks DROP CONSTRAINT chunks_source_check")
         conn.execute("ALTER TABLE chunks ADD CONSTRAINT chunks_source_check "
-                     "CHECK (source IN ('messages', 'photo'))")
+                     "CHECK (source IN ('messages', 'photo', 'queries'))")
     conn.execute("DROP INDEX IF EXISTS chunks_span_idx")
     old = conn.execute(
         "SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid "

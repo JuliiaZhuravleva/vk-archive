@@ -208,8 +208,11 @@ CREATE INDEX chunks_meta_idx ON chunks USING gin (meta jsonb_path_ops);
 -- главное, build_chunks.py убирает из диалога чанки, которых нет в новой
 -- нарезке, — без фильтра по source любая пересборка диалога стирала бы все
 -- фото-чанки вместе с их эмбеддингами.
+-- 'queries' — поисковый указатель разговора: запросы, по которым его стоит
+-- показать (build_query_chunks.py); сам текст переписки — в 'messages'.
 ALTER TABLE chunks ADD COLUMN source text NOT NULL DEFAULT 'messages'
-  CHECK (source IN ('messages', 'photo'));
+  CONSTRAINT chunks_source_check
+  CHECK (source IN ('messages', 'photo', 'queries'));
 
 -- Границы окна — естественный ключ чанка. Без него повторная нарезка
 -- диалога плодила бы дубли или требовала сносить уже посчитанные векторы.

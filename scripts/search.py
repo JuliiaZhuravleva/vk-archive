@@ -12,8 +12,11 @@
   python3 scripts/search.py "билеты" --peer 123456789 --top 5 --full
   python3 scripts/search.py "расписание" --source photo   # только по картинкам
 
-Ищутся чанки двух пород сразу: окна переписки и текст, распознанный на
-фотографиях (см. build_photo_chunks.py). В выдаче фото помечены «(фото)».
+Ищутся чанки трёх пород сразу: окна переписки, текст, распознанный на
+фотографиях (см. build_photo_chunks.py), и поисковый указатель — запросы,
+которые локальная модель написала к разговору (build_query_chunks.py). В
+выдаче фото помечены «(фото)», указатель — «(указатель, N реплик)»: сам
+разговор читать по сообщениям его диапазона.
 """
 import argparse
 import datetime as dt
@@ -220,7 +223,7 @@ def main() -> int:
     ap.add_argument("--from", dest="date_from", help="YYYY / YYYY-MM / YYYY-MM-DD")
     ap.add_argument("--to", dest="date_to")
     ap.add_argument("--full", action="store_true", help="целиком, а не отрывком")
-    ap.add_argument("--source", action="append", choices=["messages", "photo"],
+    ap.add_argument("--source", action="append", choices=["messages", "photo", "queries"],
                     help="искать только в переписке или только по фото")
     ap.add_argument("--rerank", action="store_true",
                     help="пересортировать выдачу кросс-энкодером (медленнее)")
@@ -241,7 +244,8 @@ def main() -> int:
         when = ts_from.strftime("%d.%m.%Y %H:%M") if ts_from else "—"
         ranks = (f"vec #{vrank}" if vrank else "vec —") + \
                 ("  " + (f"fts #{frank}" if frank else "fts —"))
-        what = "фото" if source == "photo" else f"{n_msgs} реплик"
+        what = {"photo": "фото", "queries": f"указатель, {n_msgs} реплик"}.get(
+            source, f"{n_msgs} реплик")
         print(f"[{i}] {score:.4f}  {ranks}  {when}  {name}  ({what})")
         body = text if args.full else text[:400] + ("…" if len(text) > 400 else "")
         print("    " + body.replace("\n", "\n    ") + "\n")

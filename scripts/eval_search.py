@@ -63,6 +63,47 @@ def rank_of(rows, peer: int, day: dt.date) -> tuple[int | None, str | None]:
     return None, None
 
 
+def eval_set(conn, path: Path, variants, args) -> int:
+    """Набор «один вопрос — много разговоров»: {"queries": […], "targets":
+    [{"peer", "date", "why"}]}. У вопроса, ответ на который разбросан по
+    нескольким диалогам, нет одного правильного чанка — мерить надо, сколько
+    нужных разговоров поиск вообще приводит.
+    Итог — доля найденных целей в топ-N (recall) по каждому режиму; цель
+    засчитывается любой породой чанка: нашёлся указатель — разговор найден."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    targets = [(t["peer"], dt.date.fromisoformat(t["date"]), t.get("why", ""))
+               for t in data["targets"]]
+    if not targets or not data.get("queries"):
+        sys.exit(f"{path.name}: нет запросов или целей")
+    found_any = {label: set() for label, _, _ in variants}
+    for query in data["queries"]:
+        print(f'\n«{query}»')
+        for label, mode, rr in variants:
+            opts = SimpleNamespace(
+                query=query, mode=mode, top=args.top, peer=None,
+                date_from=args.date_from, date_to=args.date_to,
+                source=args.source, rerank=rr, rerank_pool=args.rerank_pool)
+            rows = run_search(conn, opts)
+            hits = []
+            for j, (peer, day, _) in enumerate(targets):
+                r, src = rank_of(rows, peer, day)
+                if r:
+                    hits.append(f"#{r}{'*' if src == 'queries' else ''}")
+                    found_any[label].add(j)
+                else:
+                    hits.append("—")
+            n = sum(h != "—" for h in hits)
+            print(f"    {label:<10} {n}/{len(targets)}  " + " ".join(hits))
+    print("\n" + "=" * 66)
+    print("цели: " + "; ".join(f"{i + 1}) {d:%d.%m} {w[:40]}"
+                               for i, (_, d, w) in enumerate(targets)))
+    print("* — первым нашёлся чанк-указатель")
+    for label, _, _ in variants:
+        print(f"{label:<10} найдено хоть одним запросом: "
+              f"{len(found_any[label])}/{len(targets)}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=20)
@@ -75,10 +116,22 @@ def main() -> int:
     # Нужен, чтобы отделить вытеснение от поломки: `--source messages`
     # воспроизводит корпус до появления фото-чанков и должен давать
     # ровно прежние числа.
-    ap.add_argument("--source", action="append", choices=["messages", "photo"])
+    ap.add_argument("--source", action="append", choices=["messages", "photo", "queries"])
     ap.add_argument("--photo-cases", action="store_true", dest="photo_cases",
                     help="мерить на наборе, где ответ только на фотографии")
+    ap.add_argument("--set", type=Path, dest="set_path",
+                    help="набор «вопрос — много разговоров» (queries + targets)")
+    ap.add_argument("--only", action="append",
+                    help="только для --set: режимы по имени (fts, vector, hybrid…)")
+    ap.add_argument("--from", dest="date_from", help="только для --set: YYYY[-MM[-DD]]")
+    ap.add_argument("--to", dest="date_to")
     args = ap.parse_args()
+
+    if args.set_path:
+        variants = [v for v in MODES + (RERANK_MODES if args.rerank else [])
+                    if not args.only or v[0] in args.only]
+        with psycopg.connect(DSN) as conn:
+            return eval_set(conn, args.set_path, variants, args)
 
     path = PHOTO_CASES if args.photo_cases else CASES
     if not path.exists():
